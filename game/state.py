@@ -1,45 +1,67 @@
 # game/state.py
 
+import json
+import os
+
 class GameState:
-    """Almacena el estado actual del personaje y el progreso."""
     def __init__(self):
-        # Personalización
-        self.body_asset = 'cat body.png'
-        self.head_asset = 'cat head.png'
-        self.clothes_asset = None # e.g., 'starry sweater.png'
+        # ==================================
+        # 1. ESTADO DEL PERSONAJE Y VESTUARIO
+        # ==================================
+        # Posición global del jugador (0.0 significa "usar posición por defecto de la escena")
+        self.player_x = 0.0
+        self.player_y = 0.0  
+        self.player_name = "Nacho" # Nombre por defecto
+
+        # Vestuario (Nombres de archivo)
+        # Partes elegidas en CUSTOMIZE.PY
+        self.outfit_body = 'cat body.png'     # Valor por defecto inicial
+        self.outfit_head = 'cat head.png'     # Valor por defecto inicial
+        self.outfit_hat = None               # No tiene sombrero por defecto
+
+        # Partes elegidas en CLOSET.PY (Ropa)
+        self.outfit_clothes = None           # Ropa inicialmente Nula
         
-        # Inventario
-        self.has_backpack = False
+        # ==================================
+        # 2. DECISIONES NARRATIVAS / INVENTARIO
+        # ==================================
+        
+        self.breakfast_choice = None 
         self.has_pan_dulce = False
         self.has_sidra = False
+        self.has_backpack = False
         
-        # Decisiones de rutina
-        self.breakfast_choice = None # e.g., 'latte'
-        self.letter_written = False
-        
-        # Posición del personaje (para side scrolling)
-        self.player_x = 0
-        self.player_y = 0
+        # ... (Resto del estado) ...
 
-    def get_character_assets(self):
-        """Retorna las rutas completas para dibujar el personaje."""
-        base_path = 'assets/'
+    def get_outfit_assets(self):
+        """Devuelve los assets que el Player debe dibujar."""
         return {
-            'body': f'{base_path}bodies/{self.body_asset}',
-            'head': f'{base_path}heads/{self.head_asset}',
-            'clothes': f'{base_path}clothes/{self.clothes_asset}' if self.clothes_asset else None
+            "body"    : self.outfit_body,
+            "head"    : self.outfit_head,
+            "clothes" : self.outfit_clothes,
+            "hat"     : self.outfit_hat
         }
-    # game/state.py (Clase de ejemplo)
+    
+    # --- Funciones de guardado y carga (save/load se mantienen) ---
+    def save(self, filename="savegame.json"):
+        data = self.__dict__.copy()
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=4)
+            print("✅ Progreso guardado con éxito.")
+        except Exception as e:
+            print(f"❌ Error al guardar el juego: {e}")
 
-class GameState:
-    """Contiene todas las variables de estado del juego."""
-    def __init__(self):
-        # Opciones de Personalización Inicial
-        self.character_body = None  # Ejemplo: 'body_base_1'
-        self.character_head = None  # Ejemplo: 'head_style_3'
-        self.character_hat = None   # Ejemplo: 'hat_cap'
-        
-        # Ropa seleccionada en el armario (para la escena ROOM)
-        self.current_outfit = {} 
-        
-        # ... (otras variables de juego)
+    def load(self, filename="savegame.json"):
+        if not os.path.exists(filename):
+            return
+
+        try:
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            self.__dict__.update(data)
+            print("✅ Progreso cargado con éxito.")
+        except Exception as e:
+            print(f"❌ Error al cargar el juego: {e}")
+            self.__init__()

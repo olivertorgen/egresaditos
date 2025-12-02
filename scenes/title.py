@@ -1,51 +1,53 @@
-# scenes/title.py
-
 import pygame
 from engine.scene_manager import Scene
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, load_image
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, load_image, WHITE
 
 class TitleScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        
-        # Carga de recursos reales de tu assets/
-        # Usamos el fondo del video, ajustando la ruta
-        background_img_orig = load_image('Egresaditos portada.gif') 
-        
-        # --- AJUSTE DE TAMAÑO DEL FONDO: Escalar la imagen para que coincida con el tamaño de la pantalla ---
-        self.background_img = pygame.transform.scale(background_img_orig, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        
-        # Cargar el asset real del botón JUGAR
-        play_button_img_orig = load_image('ui', 'button play.png')
-        
-        # --- AJUSTE DE TAMAÑO DEL BOTÓN: Redimensionar el botón a un 33% (dividido por 3) del original ---
-        new_width = play_button_img_orig.get_width() // 3 # CAMBIADO DE // 2 A // 3
-        new_height = play_button_img_orig.get_height() // 3 # CAMBIADO DE // 2 A // 3
-        self.play_button_img = pygame.transform.scale(play_button_img_orig, (new_width, new_height))
-        # Si sigue siendo grande, prueba a dividir por 4 (// 4).
 
-        self.font = pygame.font.Font(None, 48)
+        # Cargar fondo
+        # Asumo que 'Egresaditos portada.gif' es un frame estático si no usamos librerías de GIF/Video.
+        # Si prefieres usar la imagen estática 'Egresaditos portada.gif', asegúrate de que solo se cargue el primer frame.
+        # Si no, podrías usar otra imagen si la portada.gif trae problemas.
+        self.bg = load_image("", "Egresaditos portada.gif")
+        self.bg = pygame.transform.scale(self.bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-        # Posicionamiento del botón
-        # Centrar el botón en la parte inferior de la pantalla
-        self.button_rect = self.play_button_img.get_rect(
-            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.8)
-        )
-
+        # Botón Play
+        self.btn_play_original = load_image("ui","button play.png")
+        self.btn_play = pygame.transform.scale(self.btn_play_original, (330, 120))
+        self.btn_play_hover = pygame.transform.scale(self.btn_play_original, (350, 130)) # Ligeramente más grande para hover
+        self.btn_play_rect = self.btn_play.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT*0.78))
+        self.is_hovering = False
+        
+        # Opcional: Iniciar la música del menú si tuvieras el motor de audio listo
+        # if hasattr(self.game, 'audio') and self.game.audio:
+        #     self.game.audio.play_music('Egresaditos portada.mp4') # O cualquier música de menú
+        
     def handle_input(self, event):
+        # 1. Manejo de Clicks
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.button_rect.collidepoint(event.pos):
-                print("Iniciando personalización...")
-                # Llama al Scene Manager para iniciar la transición y cargar CUSTOMIZE
-                self.change_scene('CUSTOMIZE') 
+            if self.btn_play_rect.collidepoint(event.pos):
+                # Cambiar a la escena de personalización
+                self.change_scene("CUSTOMIZE")
+        
+        # 2. Manejo de Hover (para detectar si el mouse está sobre el botón)
+        if event.type == pygame.MOUSEMOTION:
+            self.is_hovering = self.btn_play_rect.collidepoint(event.pos)
 
     def update(self, dt):
-        # Lógica de animación o efectos en el título
+        # No se necesita actualización compleja en la escena de título (por ahora)
         pass
 
     def draw(self, screen):
-        # 1. Dibujar fondo de la portada (Ahora escalado a la pantalla)
-        screen.blit(self.background_img, (0, 0))
+        # Dibujar fondo
+        screen.blit(self.bg, (0, 0))
         
-        # 2. Dibujar botón de Play (usando el asset redimensionado)
-        screen.blit(self.play_button_img, self.button_rect)
+        # Dibujar botón de Play (con efecto hover)
+        if self.is_hovering:
+            # Dibujar la versión más grande (hover) centrada
+            hover_rect = self.btn_play_hover.get_rect(center=self.btn_play_rect.center)
+            screen.blit(self.btn_play_hover, hover_rect)
+        else:
+            # Dibujar la versión normal
+            screen.blit(self.btn_play, self.btn_play_rect)

@@ -1,5 +1,3 @@
-# engine/scene_manager.py
-
 import pygame
 import importlib
 
@@ -7,7 +5,7 @@ from settings import SCREEN_SIZE, CAPTION
 from game.state import GameState 
 
 # ======================================================
-# DEFINICIÓN DE CLASES Y MAPA (DEBEN ESTAR AL INICIO)
+# DEFINICIÓN DE CLASES Y MAPA 
 # ======================================================
 
 class Scene:
@@ -32,11 +30,12 @@ class Scene:
         """Método llamado por las escenas para iniciar una transición."""
         self.next_scene = next_scene_key
 
-# Mapeo de CLAVES a MÓDULOS para importación dinámica
+# Mapeo de CLAVES (UPPERCASE) a MÓDULOS (lowercase con puntos)
 SCENE_MAP = {
     'TITLE': 'scenes.title',
     'CUSTOMIZE': 'scenes.customize',
     'ROOM': 'scenes.room',
+    'CLOSET_OUTFIT': 'scenes.closet_outfit', # ¡ASEGÚRATE DE QUE ESTA RUTA ES CORRECTA EN TU AMBIENTE!
     'KITCHEN': 'scenes.kitchen',
     'WRITE_LETTER': 'scenes.write_letter',
     # Agrega más escenas aquí
@@ -66,17 +65,30 @@ class Game:
         self.current_scene = self.load_scene('TITLE')
 
     def load_scene(self, scene_key):
-        """Carga dinámicamente el módulo y la clase de una escena."""
-        module_path = SCENE_MAP.get(scene_key) # <-- Ahora SCENE_MAP está definido
+        """
+        Carga dinámicamente el módulo y la clase de una escena.
+        Asegura que las claves con guiones bajos (e.g., CLOSET_OUTFIT) se 
+        conviertan a CamelCase (e.g., ClosetOutfitScene) correctamente.
+        """
+        module_path = SCENE_MAP.get(scene_key) 
         if not module_path:
             raise ValueError(f"Escena desconocida: {scene_key}")
+        
+        # DEBUGGING ADICIONAL: Imprime la ruta del módulo que intentará importar
+        print(f"DEBUG: Intentando importar módulo: {module_path}")
             
         module = importlib.import_module(module_path)
-        # Asume que la clase se llama TitleScene, CustomizeScene, etc.
-        class_name = scene_key.capitalize() + 'Scene' 
+        
+        # Generación de nombre de clase en CamelCase (e.g., CLOSET_OUTFIT -> ClosetOutfitScene)
+        # 1. Convertir a minúsculas y dividir por guiones bajos.
+        # 2. Capitalizar cada parte y unirlas.
+        parts = scene_key.lower().split('_')
+        class_name = "".join(p.capitalize() for p in parts) + 'Scene'
+        
+        # Intenta obtener la clase del módulo
         SceneClass = getattr(module, class_name)
         
-        print(f"Cargando escena: {class_name}")
+        print(f"Cargando escena: {class_name} desde {module_path}")
         return SceneClass(self)
 
     def _handle_transition(self, dt):

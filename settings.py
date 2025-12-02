@@ -1,48 +1,41 @@
 # settings.py
+import pygame, os
 
-import pygame
-import os
-
-# Configuración de la Ventana (Mantener)
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
-CAPTION = "Egresaditos: La Última Semana"
 
-# Base de Rutas
-ASSETS_PATH = 'assets/'
+ASSETS_PATH = "assets"  # carpeta raíz de imágenes
 
 def get_asset_path(*parts):
-    """
-    Construye una ruta de archivo completa para un recurso,
-    uniendo la base con las subcarpetas especificadas.
-    """
     return os.path.join(ASSETS_PATH, *parts)
 
-def load_image(*parts):
-    """Carga una imagen de Pygame desde la ruta calculada."""
+def load_image(folder, filename):
+    """
+    Carga real → load_image("ui","button.png")
+    Si falla, devuelve Surface y NO string.
+    """
+    path = get_asset_path(folder, filename)
+
+    if not os.path.exists(path):
+        print(f"⚠ Imagen no encontrada → {path}")
+        surf = pygame.Surface((120,120))
+        surf.fill((255,50,50))
+        return surf  # never return string
+
     try:
-        path = get_asset_path(*parts)
-        # Usamos .convert_alpha() para manejar la transparencia
-        image = pygame.image.load(path).convert_alpha()
-        return image
-    except pygame.error as e:
-        print(f"Error al cargar la imagen {os.path.join(*parts)}: {e}")
-        # Retorna una superficie vacía para evitar que el juego falle
-        return pygame.Surface((50, 50))
-    
-    # settings.py
+        return pygame.image.load(path).convert_alpha()
+    except Exception as e:
+        print(f"⚠ Error cargando {path}: {e}")
+        surf = pygame.Surface((120,120))
+        surf.fill((255,0,0))
+        return surf
 
-# --- Configuración de Pantalla ---
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
-CAPTION = "Egresaditos Game"
+# --- Estilo opcional
+WHITE = (255,255,255)
+# ==============================
+# RESTAURO VARIABLES QUE MAIN.PY NECESITA
+# ==============================
 
-# --- Configuración del Juego ---
-# ¡AÑADE ESTO!
-FPS = 60 
-
-# ... (El resto de tus funciones y configuraciones en settings.py) ...
-# Por ejemplo, tu función load_image
-# def load_image(folder, filename):
-#    ...
+CAPTION = "Egresaditos – La Última Semana"
+FPS = 60
