@@ -55,6 +55,10 @@ class Game:
         
         self.state = GameState()
         
+        # --- Variables de UI / Clicks (AÑADIDO) ---
+        # Inicialización de la variable para controlar clicks dobles
+        self.can_click = True 
+        
         # --- Variables de Transición ---
         self.transition_alpha = 0 
         self.transition_speed = 350
@@ -67,8 +71,6 @@ class Game:
     def load_scene(self, scene_key):
         """
         Carga dinámicamente el módulo y la clase de una escena.
-        Asegura que las claves con guiones bajos (e.g., CLOSET_OUTFIT) se 
-        conviertan a CamelCase (e.g., ClosetOutfitScene) correctamente.
         """
         module_path = SCENE_MAP.get(scene_key) 
         if not module_path:
@@ -80,8 +82,6 @@ class Game:
         module = importlib.import_module(module_path)
         
         # Generación de nombre de clase en CamelCase (e.g., CLOSET_OUTFIT -> ClosetOutfitScene)
-        # 1. Convertir a minúsculas y dividir por guiones bajos.
-        # 2. Capitalizar cada parte y unirlas.
         parts = scene_key.lower().split('_')
         class_name = "".join(p.capitalize() for p in parts) + 'Scene'
         
@@ -101,7 +101,13 @@ class Game:
                 if self.transition_alpha >= 255:
                     self.transition_alpha = 255
                     # Carga la nueva escena A MITAD de la transición
-                    self.current_scene = self.load_scene(self.transition_target_scene)
+                    try:
+                        self.current_scene = self.load_scene(self.transition_target_scene)
+                    except Exception as e:
+                        print(f"Error CRÍTICO al cargar la escena {self.transition_target_scene}: {e}")
+                        # Fallback seguro
+                        self.current_scene = self.load_scene('TITLE') 
+                        
                     self.transition_target_scene = None # Prepara para Fade-In
             
             # Fase de FADE-IN (Desvanecer el negro)
@@ -133,7 +139,7 @@ class Game:
                 self.is_transitioning = True
                 self.transition_target_scene = self.current_scene.next_scene
                 self.current_scene.next_scene = None
-            
+                
             # 3. Dibujado de la escena
             self.current_scene.draw(self.screen)
             

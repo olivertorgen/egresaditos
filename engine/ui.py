@@ -7,10 +7,10 @@ class Button:
         Soporta DOS modos:
         ------------------------------------
         1) Botón con imagen:
-           Button(image=img, pos=(x,y), callback=fn)
+            Button(image=img, pos=(x,y), callback=fn)
 
         2) Botón rectangular con texto:
-           Button(rect=(x,y,w,h), text="Play", font=font, callback=fn)
+            Button(rect=(x,y,w,h), text="Play", font=font, callback=fn)
         """
 
         self.callback = callback
@@ -28,6 +28,7 @@ class Button:
             self.rect = pygame.Rect(rect)
             self.text = text
             self.font = font
+            # Renderizar el texto (fuera de update/draw)
             self.text_surface = self.font.render(self.text, True, (20, 20, 20))
 
         else:
@@ -38,6 +39,13 @@ class Button:
     # -------------------------
     def update(self, dt=None):
         pass
+        
+    # -------------------------
+    # MÉTODO DE AYUDA (Para RoomScene)
+    # -------------------------
+    def is_hovered(self, pos):
+        """Comprueba si el ratón está sobre el botón."""
+        return self.rect.collidepoint(pos)
 
     # -------------------------
     # DRAW
@@ -48,20 +56,28 @@ class Button:
 
         elif self.mode == "text":
             # color al pasar mouse
-            color = (240, 240, 240) if self.hover else (220, 220, 220)
+            color = (200, 200, 200) if self.hover else (220, 220, 220)
             pygame.draw.rect(surf, color, self.rect, border_radius=8)
 
             txt_rect = self.text_surface.get_rect(center=self.rect.center)
             surf.blit(self.text_surface, txt_rect)
 
     # -------------------------
-    # EVENTOS
+    # EVENTOS (DEJANDO LA LLAMADA A CALLBACK A LA ESCENA)
     # -------------------------
     def handle_event(self, event):
+        """
+        Maneja la detección de hover y click, devuelve True si se detecta un click.
+        """
+        
+        # 1. Hover
         if event.type == pygame.MOUSEMOTION:
             self.hover = self.rect.collidepoint(event.pos)
-
+            
+        # 2. Click (Devuelve True para que la escena decida llamar al callback)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 and self.rect.collidepoint(event.pos):
-                if self.callback:
-                    self.callback()
+                # Importante: No llamamos self.callback() aquí.
+                return True 
+                
+        return False # No hubo click
