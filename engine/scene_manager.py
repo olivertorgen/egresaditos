@@ -35,7 +35,7 @@ SCENE_MAP = {
     'TITLE': 'scenes.title',
     'CUSTOMIZE': 'scenes.customize',
     'ROOM': 'scenes.room',
-    'CLOSET_OUTFIT': 'scenes.closet_outfit', # ¡ASEGÚRATE DE QUE ESTA RUTA ES CORRECTA EN TU AMBIENTE!
+    'CLOSET_OUTFIT': 'scenes.closet', # ¡CORREGIDO! Apunta a scenes.closet.py
     'KITCHEN': 'scenes.kitchen',
     'WRITE_LETTER': 'scenes.write_letter',
     # Agrega más escenas aquí
@@ -57,6 +57,7 @@ class Game:
         
         # --- Variables de UI / Clicks (AÑADIDO) ---
         # Inicialización de la variable para controlar clicks dobles
+        # Esta variable es necesaria para evitar el error 'AttributeError: 'Game' object has no attribute 'can_click''
         self.can_click = True 
         
         # --- Variables de Transición ---
@@ -84,6 +85,11 @@ class Game:
         # Generación de nombre de clase en CamelCase (e.g., CLOSET_OUTFIT -> ClosetOutfitScene)
         parts = scene_key.lower().split('_')
         class_name = "".join(p.capitalize() for p in parts) + 'Scene'
+        
+        # NOTA: Para la clave CLOSET_OUTFIT, el nombre de clase debe ser ClosetScene o ClosetOutfitScene.
+        # Ya que la clase se llama ClosetScene en scenes.closet.py, ajustamos la lógica aquí.
+        if scene_key == 'CLOSET_OUTFIT':
+            class_name = 'ClosetScene'
         
         # Intenta obtener la clase del módulo
         SceneClass = getattr(module, class_name)

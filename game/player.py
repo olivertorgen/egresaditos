@@ -1,88 +1,115 @@
 import pygame
-from settings import load_image, SCREEN_WIDTH, SCREEN_HEIGHT # ¡CORRECCIÓN: Se agrega SCREEN_HEIGHT!
-import os 
+from settings import load_image, SCREEN_HEIGHT
 
+# Altura estándar del personaje para escala
+CHARACTER_HEIGHT = 200
+# La posición Y en el suelo
+GROUND_Y = SCREEN_HEIGHT * 0.9
+
+# =================================================================
+# 🏃‍♂️ PLAYER CLASS
+# =================================================================
 class Player:
-    """
-    Player: dibuja al alumno con cuerpo, cabeza y sombrero.
-    Maneja la posición (self.x) para el side-scrolling.
-    """
+    def __init__(self, body, head, hat=None):
+        self.body_asset = body
+        self.head_asset = head
+        self.hat_asset = hat
+        
+        # Posición inicial del jugador (actualizada por RoomScene)
+        self.x = 0
+        self.y = GROUND_Y
+        
+        # Velocidad de movimiento (píxeles por segundo)
+        # Nota: La velocidad se ajusta a 400 en RoomScene para un movimiento más rápido.
+        self.speed = 150 
+        
+        # Estado de salto
+        self.is_jumping = False
+        self.jump_velocity = 0
+        # CORRECCIÓN DE FLUIDEZ: AUMENTAMOS drásticamente la gravedad para un salto instantáneo y reactivo
+        self.gravity = 2500 # Aceleración de la gravedad, valor muy alto para un efecto arcade/plataforma ultrarrápido
+        
 
-    def __init__(self, body, head, hat):
-        
-        # Factor de escala AJUSTADO (Reducido a 0.25 para un personaje más pequeño)
-        self.scale_factor = 0.25 
-        
-        # Carga y Escalado de imágenes
-        # Los argumentos aquí son SÓLO los nombres de archivo (ej: "cat body.png")
-        self.body_img = self._load_and_scale_asset("bodies", body)
-        self.head_img = self._load_and_scale_asset("heads", head)
-        self.hat_img = self._load_and_scale_asset("hats", hat)
-        
-        # Offsets consistentes (ajustados a la nueva escala)
-        
-        # CORRECCIÓN CABEZA: Aumentamos el valor base a -180 para forzar más solapamiento.
-        # Offset de la cabeza: -180 (base) * 0.25 = -45
-        self.head_offset_from_body = -180 * self.scale_factor
-        
-        # Offset del sombrero: -180 (más profundo) * 0.25 = -45
-        self.hat_offset_from_head = -180 * self.scale_factor
+    def start_jump(self):
+        """Inicia el salto si el personaje está en el suelo."""
+        if not self.is_jumping:
+            self.is_jumping = True
+            # CORRECCIÓN DE FLUIDEZ: Mayor impulso inicial para un salto más enérgico
+            self.jump_velocity = -1000 
 
-        # Posición inicial del jugador 
-        self.x = SCREEN_WIDTH // 2
-        # CORRECCIÓN SUELO: Ajustamos Y para que esté a 100 píxeles del borde inferior. 
-        # Esto suele ser más preciso para que el personaje se vea "en el suelo" del fondo.
-        self.y = SCREEN_HEIGHT - 100 
-
-        self.speed = 4 
-
-    def _load_and_scale_asset(self, folder, filename):
+    def update(self, dt=1/60.0):
         """
-        Loads and scales an image using the two-argument load_image function.
+        Aplica gravedad y actualiza la posición vertical (salto).
+        Usa dt para garantizar que el salto es fluido y consistente.
         """
-        if not filename:
-            return None
+        if self.is_jumping:
+            # Aplicar la velocidad vertical
+            self.y += self.jump_velocity * dt
+            # Aplicar la gravedad para reducir la velocidad
+            self.jump_velocity += self.gravity * dt
             
-        # Llamada CORREGIDA a load_image con los dos argumentos.
-        image = load_image(folder, filename)
-        
-        # Safety check to ensure it's a surface before scaling
-        if image and isinstance(image, pygame.Surface): 
-            width = int(image.get_width() * self.scale_factor)
-            height = int(image.get_height() * self.scale_factor)
-            return pygame.transform.scale(image, (width, height))
-            
-        return None # Returns None if loading failed
-
-
-    def move(self, direction):
-        """Mueve al jugador (y al fondo) izquierda o derecha."""
-        self.x += direction * self.speed
-
+            # Comprobar si aterriza
+            if self.y >= GROUND_Y:
+                self.y = GROUND_Y
+                self.is_jumping = False
+                self.jump_velocity = 0
+                
+    # =================================================================
+    # DRAWING LOGIC (Lógica de Dibujado)
+    # =================================================================
     def draw(self, screen):
-        # Si no hay cuerpo, no dibujamos
-        if not self.body_img:
-            return
+        parts = []
+        
+        # 1. Cuerpo
+        body_img = load_image('bodies', self.body_asset)
+        # Factor de escala
+        scale_ratio = CHARACTER_HEIGHT / body_img.get_height()
+        
+        body_img = pygame.transform.scale(
+            body_img,
+            (int(body_img.get_width() * scale_ratio), CHARACTER_HEIGHT)
+        )
+        
+        # Usamos self.x y self.y (que incluye el ajuste de salto)
+        body_rect = body_img.get_rect(midbottom=(self.x, self.y))
+        parts.append((body_img, body_rect))
+        
+        # 2. Cabeza
+        head_img = load_image('heads', self.head_asset)
+        head_img = pygame.transform.scale(
+            head_img,
+            (int(head_img.get_width() * scale_ratio), int(head_img.get_height() * scale_ratio))
+        )
+        
+        # 50 es la compensación de la cabeza respecto al cuello (body_rect.top)
+        head_rect = head_img.get_rect(midbottom=(self.x, body_rect.top + 50))
+        parts.append((head_img, head_rect))
+        
+        # 3. Sombrero (¡Corrección de offsets!)
+        if self.hat_asset:
+            hat_img = load_image('hats', self.hat_asset)
+            hat_img = pygame.transform.scale(
+                hat_img,
+                (int(hat_img.get_width() * scale_ratio), int(hat_img.get_height() * scale_ratio))
+            )
 
-        # ---- CUERPO ----
-        # Position the body using midbottom to align with the ground (self.y)
-        body_rect = self.body_img.get_rect(midbottom=(self.x, self.y))
-        screen.blit(self.body_img, body_rect)
+            # OFFSETS AJUSTADOS para que el sombrero se siente correctamente
+            HAT_OFFSETS = {
+                "hat graduation.png": 60, # Offset pequeño para la parte superior de la cabeza
+                "hat santa claus.png": 40,  # Offset más pequeño
+                "hat wizard.png": 80, # Offset medio
+            }
 
-        # ---- CABEZA ----
-        if self.head_img:
-            head_x = body_rect.midtop[0]
-            # Mueve la cabeza hacia arriba desde la base del cuello del cuerpo.
-            # Al usar midbottom en la cabeza, el offset negativo la mueve más arriba.
-            head_y = body_rect.midtop[1] + self.head_offset_from_body
-            # Usamos midbottom para la cabeza para que el punto de unión (cuello) sea estable.
-            head_rect = self.head_img.get_rect(midbottom=(head_x, head_y))
-            screen.blit(self.head_img, head_rect)
+            offset = HAT_OFFSETS.get(self.hat_asset, 60) 
 
-            # ---- SOMBRERO ----
-            if self.hat_img:
-                hat_x = head_rect.midtop[0]
-                # Mueve el sombrero hacia abajo desde el punto superior de la cabeza (midtop de head_rect)
-                hat_y = head_rect.midtop[1] + self.hat_offset_from_head
-                hat_rect = self.hat_img.get_rect(midbottom=(hat_x, hat_y))
-                screen.blit(self.hat_img, hat_rect)
+            # Posicionar el sombrero usando el top de la cabeza (head_rect.top) más el offset
+            # Este offset empuja el sombrero hacia abajo, sobre la cabeza.
+            hat_rect = hat_img.get_rect(
+                midbottom=(self.x, head_rect.top + offset) 
+            )
+
+            parts.append((hat_img, hat_rect))
+            
+        # Dibujar todas las partes
+        for img, rect in parts:
+            screen.blit(img, rect)

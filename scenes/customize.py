@@ -1,5 +1,3 @@
-# scenes/customize.py
-
 import pygame
 import random
 from engine.scene_manager import Scene
@@ -259,6 +257,7 @@ class CustomizeScene(Scene):
             head_img,
             (int(head_img.get_width()*sc),int(head_img.get_height()*sc))
         )
+        # 50 es la compensación de la cabeza respecto al cuello (body_rect.top)
         head_rect=head_img.get_rect(midbottom=(x,body_rect.top+50))
         parts.append((head_img,head_rect))
 
@@ -271,18 +270,19 @@ class CustomizeScene(Scene):
                 (int(hat_img.get_width()*sc), int(hat_img.get_height()*sc))
             )
 
-            # offsets ajustados para que no flote
+            # VALORES MÁS GRANDES PARA BAJAR AÚN MÁS EL SOMBRERO
             HAT_OFFSETS = {
-                "hat graduation.png": -8,
-                "hat santa claus.png": -5,
-                "hat wizard.png": -12,
+                "hat graduation.png": 110, # Antes 70 -> Ahora 110
+                "hat santa claus.png": 80,  # Antes 50 -> Ahora 80
+                "hat wizard.png": 130, # Antes 90 -> Ahora 130
             }
 
-            offset = HAT_OFFSETS.get(hat, -10)
+            offset = HAT_OFFSETS.get(hat, 110) 
 
             # alineación correcta (¡sin flotación!)
+            # midbottom de la cabeza (head_rect.top) más el offset positivo
             hat_rect = hat_img.get_rect(
-                midbottom=(x, head_rect.top + offset)
+                midbottom=(x, head_rect.top + offset) 
             )
 
             parts.append((hat_img, hat_rect))

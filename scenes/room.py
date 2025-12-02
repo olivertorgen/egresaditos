@@ -12,6 +12,7 @@ from game.player import Player
 
 class RoomScene(Scene):
     def __init__(self, game):
+        # ¡CORRECCIÓN CLAVE! Agregamos los paréntesis: super().__init__(game)
         super().__init__(game)
         
         self.state = self.game.state
@@ -58,6 +59,8 @@ class RoomScene(Scene):
         )
         # Posición inicial del jugador (centrado en la vista de la cámara)
         self.player.x = SCREEN_WIDTH // 2
+        # AÑADIDO: Aumentamos la velocidad para que el movimiento se sienta más ágil y suave
+        self.player.speed = 400 
         
         # ===========================
         # BOTONES
@@ -104,7 +107,7 @@ class RoomScene(Scene):
     # MANEJO DE INPUTS (Event Delegation)
     # ===========================
     def handle_input(self, event):
-        """Maneja los eventos para los botones."""
+        """Maneja los eventos para los botones y el salto (W)."""
         
         # 1. Botones (Debounce controlado por self.game.can_click)
         for btn in self.buttons:
@@ -116,6 +119,11 @@ class RoomScene(Scene):
                     btn.callback()
                     # Deshabilita el click (debounce)
                     self.game.can_click = False 
+        
+        # 2. Salto (Evento de tecla hacia abajo)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_w or event.key == pygame.K_UP:
+                self.player.start_jump()
     
     # ===========================
     # UPDATE
@@ -131,8 +139,8 @@ class RoomScene(Scene):
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             direction = 1 # Corrección de lógica: mover el personaje a la derecha es +1
 
-        # Actualiza la posición X del jugador
-        self.player.x += direction * self.player.speed
+        # Actualiza la posición X del jugador. Multiplicamos por dt para movimiento suave.
+        self.player.x += direction * self.player.speed * dt
         
         # Limita la posición X del jugador
         # El jugador debe moverse en el rango de todo el fondo.
@@ -140,6 +148,10 @@ class RoomScene(Scene):
         max_x = self.background.get_width() - SCREEN_WIDTH // 4 
         self.player.x = max(min(self.player.x, max_x), min_x)
 
+        # --- ACTUALIZACIÓN DE SALTO Y GRAVEDAD ---
+        # Pasamos dt para calcular la velocidad y gravedad correctamente.
+        self.player.update(dt) 
+        
         # Calcula la posición del fondo (simulando que la cámara sigue al jugador)
         # La posición del fondo es la mitad de la pantalla menos la posición del jugador
         self.bg_x = SCREEN_WIDTH // 2 - self.player.x
