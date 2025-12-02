@@ -1,36 +1,63 @@
 import pygame
-from engine.ui import Button
-from game.state import GameState
+from engine.scene_manager import Scene
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, load_image, WHITE
 
-class EndingScene:
-    def __init__(self, manager, state):
-        self.manager = manager
-        self.screen = manager.screen
-        self.state = state
+class EndingScene(Scene):
+    def __init__(self, game):
+        super().__init__(game)
 
-    def start(self):
-        self.font = pygame.font.SysFont(None, 24)
-        self.title = pygame.font.SysFont(None, 36)
-        self.btn_restart = Button((WIDTH//2-120, HEIGHT-120, 240, 60), "Reiniciar juego", self.font, self.restart)
+        # Usaremos la misma fuente que TitleScene
+        self.font = pygame.font.Font(None, 48)
+        self.footer_text = "¡Gracias por jugar!"
+        self.footer_surface = self.font.render(self.footer_text, True, WHITE)
+        self.footer_rect = self.footer_surface.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT*0.95))
 
-    def restart(self):
-        # create fresh state and go to customize
-        from scenes.customize import CustomizeScene
-        self.manager.replace(CustomizeScene(self.manager))
+        # Cargar fondo: Se usa el mismo que en TitleScene
+        self.bg = load_image("", "Egresaditos portada.gif")
+        self.bg = pygame.transform.scale(self.bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    def handle_event(self, event):
-        self.btn_restart.handle_event(event)
+        # Botón Rewind (Reinicio)
+        self.btn_rewind_original = load_image("ui","button rewind.png")
+        
+        # Tamaño del botón de reinicio (un poco más pequeño que el de Play)
+        BUTTON_WIDTH = 280
+        BUTTON_HEIGHT = 100
+        
+        self.btn_rewind = pygame.transform.scale(self.btn_rewind_original, (BUTTON_WIDTH, BUTTON_HEIGHT))
+        self.btn_rewind_hover = pygame.transform.scale(self.btn_rewind_original, (BUTTON_WIDTH + 20, BUTTON_HEIGHT + 10)) # Ligeramente más grande para hover
+        self.btn_rewind_rect = self.btn_rewind.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT*0.78))
+        self.is_hovering = False
+        
+        # NOTA DE MÚSICA: El Game Manager (main.py) ya intenta reproducir 
+        # 'music/ending.ogg' (o .wav) automáticamente al cargar esta escena.
+
+    def handle_input(self, event):
+        # 1. Manejo de Clicks
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.btn_rewind_rect.collidepoint(event.pos):
+                # Reiniciar el juego volviendo a la escena de título
+                self.change_scene("TITLE")
+        
+        # 2. Manejo de Hover (para detectar si el mouse está sobre el botón)
+        if event.type == pygame.MOUSEMOTION:
+            self.is_hovering = self.btn_rewind_rect.collidepoint(event.pos)
 
     def update(self, dt):
+        # No se necesita actualización compleja en la escena de final (por ahora)
         pass
 
-    def render(self, surf):
-        surf.fill((250,250,250))
-        t = self.title.render("Listo para la escuela!", True, (20,20,20))
-        surf.blit(t, (40,40))
-        sx = 40
-        surf.blit(self.font.render(f"Nombre: {self.state.name}", True, (30,30,30)), (sx, 120))
-        surf.blit(self.font.render(f"Snack: {self.state.snack}", True, (30,30,30)), (sx, 150))
-        surf.blit(self.font.render(f"Bebida: {self.state.drink}", True, (30,30,30)), (sx, 180))
-        surf.blit(self.font.render(f"Carta guardada. Stickers: {','.join(self.state.stickers)}", True, (30,30,30)), (sx, 210))
-        self.btn_restart.draw(surf)
+    def draw(self, screen):
+        # Dibujar fondo
+        screen.blit(self.bg, (0, 0))
+        
+        # Dibujar el mensaje de agradecimiento
+        screen.blit(self.footer_surface, self.footer_rect)
+
+        # Dibujar botón de Rewind (con efecto hover)
+        if self.is_hovering:
+            # Dibujar la versión más grande (hover) centrada
+            hover_rect = self.btn_rewind_hover.get_rect(center=self.btn_rewind_rect.center)
+            screen.blit(self.btn_rewind_hover, hover_rect)
+        else:
+            # Dibujar la versión normal
+            screen.blit(self.btn_rewind, self.btn_rewind_rect)

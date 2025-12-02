@@ -100,8 +100,9 @@ class RoomScene(Scene):
     # CAMBIO DE ESCENAS
     # ===========================
     def go_closet(self):
-        # ¡CORRECCIÓN CRÍTICA! Cambiamos la clave a la más estándar: "CLOSET"
-        self.change_scene("CLOSET")
+        # ¡CORRECCIÓN CRÍTICA! Usamos la clave correcta que está en SCENE_MAP
+        # (que por contexto sabemos que es 'CLOSET_OUTFIT')
+        self.change_scene("CLOSET_OUTFIT")
 
     def go_kitchen(self):
         # CORRECCIÓN: Llamamos a change_scene directamente en self.
@@ -119,7 +120,10 @@ class RoomScene(Scene):
             # handle_event gestiona el hover y devuelve True si hay un MOUSEBUTTONDOWN
             if btn.handle_event(event): 
                 if event.type == pygame.MOUSEBUTTONDOWN and getattr(self.game, 'can_click', False):
+                    # Aquí se llama la función go_closet o go_kitchen
                     btn.callback()
+                    # La lógica de self.game.can_click = False se maneja en el Game Manager
+                    # una vez que comienza la transición, pero la mantenemos aquí para el debounce
                     if hasattr(self.game, 'can_click'):
                         self.game.can_click = False 
         

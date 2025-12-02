@@ -1,115 +1,84 @@
 import pygame
-from settings import load_image, SCREEN_HEIGHT
+import os
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, load_image, get_asset_path
 
-# Altura estándar del personaje para escala
-CHARACTER_HEIGHT = 200
-# La posición Y en el suelo
-GROUND_Y = SCREEN_HEIGHT * 0.9
+# Altura base del personaje, crucial para calcular posiciones
+CHARACTER_HEIGHT = 200 
 
-# =================================================================
-# 🏃‍♂️ PLAYER CLASS
-# =================================================================
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self, body, head, hat=None):
-        self.body_asset = body
-        self.head_asset = head
-        self.hat_asset = hat
+        super().__init__()
         
-        # Posición inicial del jugador (actualizada por RoomScene)
+        # Assets actuales
+        self.body_asset = body 
+        self.head_asset = head 
+        self.hat_asset = hat 
+        
         self.x = 0
-        self.y = GROUND_Y
+        self.y = 0 
         
-        # Velocidad de movimiento (píxeles por segundo)
-        # Nota: La velocidad se ajusta a 400 en RoomScene para un movimiento más rápido.
-        self.speed = 150 
+        # Diccionario para guardar las imágenes cargadas
+        self.parts = {}
+        self._load_parts()
         
-        # Estado de salto
-        self.is_jumping = False
-        self.jump_velocity = 0
-        # CORRECCIÓN DE FLUIDEZ: AUMENTAMOS drásticamente la gravedad para un salto instantáneo y reactivo
-        self.gravity = 2500 # Aceleración de la gravedad, valor muy alto para un efecto arcade/plataforma ultrarrápido
-        
+        # Imagen compuesta inicial y su rectángulo
+        self.image = self._create_composite_image()
+        self.rect = self.image.get_rect()
 
-    def start_jump(self):
-        """Inicia el salto si el personaje está en el suelo."""
-        if not self.is_jumping:
-            self.is_jumping = True
-            # CORRECCIÓN DE FLUIDEZ: Mayor impulso inicial para un salto más enérgico
-            self.jump_velocity = -1000 
-
-    def update(self, dt=1/60.0):
-        """
-        Aplica gravedad y actualiza la posición vertical (salto).
-        Usa dt para garantizar que el salto es fluido y consistente.
-        """
-        if self.is_jumping:
-            # Aplicar la velocidad vertical
-            self.y += self.jump_velocity * dt
-            # Aplicar la gravedad para reducir la velocidad
-            self.jump_velocity += self.gravity * dt
+    def _load_parts(self):
+        """Carga y reescala las imágenes de las partes del cuerpo y la ropa."""
+        # Lógica de carga para el cuerpo (busca en 'clothes' si es una prenda, o 'bodies' si es base)
+        if 'sweater' in self.body_asset or 'shirt' in self.body_asset:
+            self.parts['body'] = load_image("clothes", self.body_asset, scale_height=CHARACTER_HEIGHT)
+        else:
+            self.parts['body'] = load_image("bodies", self.body_asset, scale_height=CHARACTER_HEIGHT)
             
-            # Comprobar si aterriza
-            if self.y >= GROUND_Y:
-                self.y = GROUND_Y
-                self.is_jumping = False
-                self.jump_velocity = 0
-                
-    # =================================================================
-    # DRAWING LOGIC (Lógica de Dibujado)
-    # =================================================================
-    def draw(self, screen):
-        parts = []
-        
-        # 1. Cuerpo
-        body_img = load_image('bodies', self.body_asset)
-        # Factor de escala
-        scale_ratio = CHARACTER_HEIGHT / body_img.get_height()
-        
-        body_img = pygame.transform.scale(
-            body_img,
-            (int(body_img.get_width() * scale_ratio), CHARACTER_HEIGHT)
-        )
-        
-        # Usamos self.x y self.y (que incluye el ajuste de salto)
-        body_rect = body_img.get_rect(midbottom=(self.x, self.y))
-        parts.append((body_img, body_rect))
-        
-        # 2. Cabeza
-        head_img = load_image('heads', self.head_asset)
-        head_img = pygame.transform.scale(
-            head_img,
-            (int(head_img.get_width() * scale_ratio), int(head_img.get_height() * scale_ratio))
-        )
-        
-        # 50 es la compensación de la cabeza respecto al cuello (body_rect.top)
-        head_rect = head_img.get_rect(midbottom=(self.x, body_rect.top + 50))
-        parts.append((head_img, head_rect))
-        
-        # 3. Sombrero (¡Corrección de offsets!)
+        # Carga de la cabeza (escala a la mitad de la altura total)
+        self.parts['head'] = load_image("heads", self.head_asset, scale_height=CHARACTER_HEIGHT // 2)
+
+        # Carga del sombrero (si existe)
         if self.hat_asset:
-            hat_img = load_image('hats', self.hat_asset)
-            hat_img = pygame.transform.scale(
-                hat_img,
-                (int(hat_img.get_width() * scale_ratio), int(hat_img.get_height() * scale_ratio))
-            )
+            self.parts['hat'] = load_image("hats", self.hat_asset, scale_height=CHARACTER_HEIGHT // 3)
+        else:
+            self.parts['hat'] = None
 
-            # OFFSETS AJUSTADOS para que el sombrero se siente correctamente
-            HAT_OFFSETS = {
-                "hat graduation.png": 60, # Offset pequeño para la parte superior de la cabeza
-                "hat santa claus.png": 40,  # Offset más pequeño
-                "hat wizard.png": 80, # Offset medio
-            }
+    def _create_composite_image(self):
+        """Combina las partes cargadas en una sola superficie para dibujar."""
+        body_img = self.parts.get('body')
+        if not body_img:
+            # Fallback en caso de error de carga
+            return pygame.Surface((100, CHARACTER_HEIGHT))
 
-            offset = HAT_OFFSETS.get(self.hat_asset, 60) 
-
-            # Posicionar el sombrero usando el top de la cabeza (head_rect.top) más el offset
-            # Este offset empuja el sombrero hacia abajo, sobre la cabeza.
-            hat_rect = hat_img.get_rect(
-                midbottom=(self.x, head_rect.top + offset) 
-            )
-
-            parts.append((hat_img, hat_rect))
+        width = body_img.get_width()
+        height = body_img.get_height()
+        
+        composite = pygame.Surface((width, height), pygame.SRCALPHA)
+        
+        # Dibujar Body
+        body_rect = body_img.get_rect(midbottom=(width // 2, height))
+        composite.blit(body_img, body_rect)
+        
+        # Dibujar Head
+        head_img = self.parts.get('head')
+        if head_img:
+            head_rect = head_img.get_rect(midbottom=(width // 2, body_rect.top + height * 0.1)) 
+            composite.blit(head_img, head_rect)
             
-        # Dibujar todas las partes
-        for img, rect in parts:
-            screen.blit(img, rect)
+            # Dibujar Hat
+            hat_img = self.parts.get('hat')
+            if hat_img:
+                hat_rect = hat_img.get_rect(midbottom=(width // 2, head_rect.top + height * 0.05))
+                composite.blit(hat_img, hat_rect)
+
+        return composite
+
+    def update(self, dt):
+        """Actualiza el estado (y las partes si han cambiado)."""
+        # Verificamos si los assets externos han cambiado y regeneramos la imagen si es necesario
+        self._load_parts() 
+        self.image = self._create_composite_image()
+        
+    def draw(self, screen):
+        """Dibuja el jugador en la pantalla."""
+        self.rect.midbottom = (int(self.x), int(self.y))
+        screen.blit(self.image, self.rect)
