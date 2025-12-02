@@ -1,8 +1,7 @@
 import pygame
 import importlib
-
-from settings import SCREEN_SIZE, CAPTION 
-from game.state import GameState 
+from settings import SCREEN_SIZE, CAPTION, FPS
+from game.state import GameState
 
 # ======================================================
 # DEFINICIÓN DE CLASES Y MAPA 
@@ -35,7 +34,8 @@ SCENE_MAP = {
     'TITLE': 'scenes.title',
     'CUSTOMIZE': 'scenes.customize',
     'ROOM': 'scenes.room',
-    'CLOSET_OUTFIT': 'scenes.closet', # ¡CORREGIDO! Apunta a scenes.closet.py
+    # Apunta al módulo donde se define la clase ClosetScene
+    'CLOSET_OUTFIT': 'scenes.closet', 
     'KITCHEN': 'scenes.kitchen',
     'WRITE_LETTER': 'scenes.write_letter',
     # Agrega más escenas aquí
@@ -48,25 +48,25 @@ SCENE_MAP = {
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode(SCREEN_SIZE)
+        # Nota: Usamos SCREEN_SIZE (del primer bloque) para consistencia
+        self.screen = pygame.display.set_mode(SCREEN_SIZE) 
         pygame.display.set_caption(CAPTION)
         self.clock = pygame.time.Clock()
         self.running = True
         
         self.state = GameState()
         
-        # --- Variables de UI / Clicks (AÑADIDO) ---
-        # Inicialización de la variable para controlar clicks dobles
-        # Esta variable es necesaria para evitar el error 'AttributeError: 'Game' object has no attribute 'can_click''
+        # --- Variables de UI / Clicks ---
+        # can_click evita clicks múltiples durante transiciones o en botones
         self.can_click = True 
         
         # --- Variables de Transición ---
         self.transition_alpha = 0 
-        self.transition_speed = 350
+        self.transition_speed = 350 # Velocidad de la transición (ej. 350)
         self.is_transitioning = False
         self.transition_target_scene = None
         
-        # Carga la primera escena (Requiere SCENE_MAP y Scene definidos)
+        # Carga la primera escena
         self.current_scene = self.load_scene('TITLE')
 
     def load_scene(self, scene_key):
@@ -77,23 +77,26 @@ class Game:
         if not module_path:
             raise ValueError(f"Escena desconocida: {scene_key}")
         
-        # DEBUGGING ADICIONAL: Imprime la ruta del módulo que intentará importar
-        print(f"DEBUG: Intentando importar módulo: {module_path}")
-            
+        # 1. Importar módulo
         module = importlib.import_module(module_path)
         
-        # Generación de nombre de clase en CamelCase (e.g., CLOSET_OUTFIT -> ClosetOutfitScene)
+        # 2. Determinar el nombre de la clase esperado (CamelCase + 'Scene')
         parts = scene_key.lower().split('_')
         class_name = "".join(p.capitalize() for p in parts) + 'Scene'
         
-        # NOTA: Para la clave CLOSET_OUTFIT, el nombre de clase debe ser ClosetScene o ClosetOutfitScene.
-        # Ya que la clase se llama ClosetScene en scenes.closet.py, ajustamos la lógica aquí.
+        # 3. AJUSTE CRÍTICO: Sobrescribir si el nombre de la clase es 'ClosetScene'
+        # Esto se necesita porque el archivo scenes/closet.py no usa ClosetOutfitScene.
         if scene_key == 'CLOSET_OUTFIT':
             class_name = 'ClosetScene'
         
-        # Intenta obtener la clase del módulo
-        SceneClass = getattr(module, class_name)
-        
+        # 4. Intentar obtener la clase del módulo
+        try:
+            SceneClass = getattr(module, class_name)
+        except AttributeError as e:
+            # Captura el error si el nombre de la clase no existe en el módulo
+            print(f"ERROR: No se encontró la clase '{class_name}' en el módulo '{module_path}'.")
+            raise e
+            
         print(f"Cargando escena: {class_name} desde {module_path}")
         return SceneClass(self)
 
@@ -110,7 +113,7 @@ class Game:
                     try:
                         self.current_scene = self.load_scene(self.transition_target_scene)
                     except Exception as e:
-                        print(f"Error CRÍTICO al cargar la escena {self.transition_target_scene}: {e}")
+                        print(f"Error CRÍTICO al cargar la escena {self.transition_target_scene}: {e}. Volviendo a TITLE.")
                         # Fallback seguro
                         self.current_scene = self.load_scene('TITLE') 
                         
@@ -121,11 +124,19 @@ class Game:
                 self.transition_alpha -= self.transition_speed * dt
                 if self.transition_alpha <= 0:
                     self.transition_alpha = 0
-                    self.is_transitioning = False # Transición terminada
+                    self.is_transitioning = False
+                    # Re-habilitamos el click una vez finalizada la transición
+                    self.can_click = True
+
 
     def run(self):
         while self.running:
-            dt = self.clock.tick(60) / 1000.0
+            # Usamos un valor de FPS consistente (60 o el de settings si está definido)
+            try:
+                dt = self.clock.tick(FPS) / 1000.0
+            except NameError:
+                # Usar 60 FPS como fallback seguro
+                dt = self.clock.tick(60) / 1000.0
             
             # Manejo de eventos
             for event in pygame.event.get():
@@ -134,25 +145,33 @@ class Game:
                 
                 # Solo procesar input si no hay transición activa
                 if not self.is_transitioning:
-                    self.current_scene.handle_input(event)
+                    if self.current_scene:
+                        self.current_scene.handle_input(event)
             
             # 1. Actualización (Solo si NO estamos en la fase de Fade-Out)
             if not (self.is_transitioning and self.transition_target_scene):
+                if self.current_scene:
                     self.current_scene.update(dt)
 
             # 2. Comprobar y ejecutar cambio de escena (INICIA la transición)
-            if self.current_scene.next_scene and not self.is_transitioning:
+            if self.current_scene and self.current_scene.next_scene and not self.is_transitioning:
                 self.is_transitioning = True
                 self.transition_target_scene = self.current_scene.next_scene
                 self.current_scene.next_scene = None
                 
+                # CORRECCIÓN DE ROBUSTEZ: Aseguramos que el click se desactive aquí
+                # para prevenir clicks dobles o que se procese input del botón
+                # después de solicitar el cambio de escena.
+                self.can_click = False 
+                
             # 3. Dibujado de la escena
-            self.current_scene.draw(self.screen)
+            if self.current_scene:
+                self.current_scene.draw(self.screen)
             
             # 4. Manejo de Transición
             self._handle_transition(dt)
             
-            # 5. Dibujar Overlay de Transición
+            # 5. Dibujar Overlay de Transición (el fundido a negro)
             if self.transition_alpha > 0:
                 overlay = pygame.Surface(SCREEN_SIZE)
                 overlay.fill((0, 0, 0))
@@ -162,3 +181,7 @@ class Game:
             pygame.display.flip()
             
         pygame.quit()
+
+if __name__ == '__main__':
+    game = Game()
+    game.run()

@@ -46,7 +46,8 @@ class DraggableItem:
         screen.blit(self.image, self.rect)
 
 
-class ClosetScene(Scene): # Renombramos la clase a ClosetScene
+class ClosetScene(Scene): 
+    # Asegúrate de que la clase de la escena se llame 'ClosetScene'
     def __init__(self, game):
         super().__init__(game)
         self.state = self.game.state
@@ -55,36 +56,47 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         self.closet_open = False
         
         # =================================================================
-        # 1. Fondos y Escalado
+        # 1. Fondos y Escalado (Añadido manejo de errores robusto)
         # =================================================================
-        self.background_closed_img = load_image("images/rooms", "closet.png")
-        self.background_open_img = load_image("images/rooms", "open closet.png")
-        
+        try:
+            # Cargar assets del fondo del armario
+            self.background_closed_img = load_image("images/rooms", "closet.png")
+            self.background_open_img = load_image("images/rooms", "open closet.png")
+        except Exception as e:
+            # Fallback en caso de que load_image falle de forma inesperada
+            print(f"Error fatal al cargar fondos en ClosetScene: {e}. Usando fondo de emergencia.")
+            self.background_closed_img = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.background_closed_img.fill((50, 50, 50)) # Fondo oscuro de emergencia
+            self.background_open_img = self.background_closed_img
+
         self.background_closed = self._scale_background(self.background_closed_img)
         self.background_open = self._scale_background(self.background_open_img)
         
-        # Posición X del fondo (centrado)
         self.bg_x = (SCREEN_WIDTH - self.background_closed.get_width()) // 2
         
         # =================================================================
-        # 2. Player
+        # 2. Player (Restaurado y con Fallback de Assets)
         # =================================================================
         outfit = self.state.get_outfit_assets()
+        
+        # Añadir assets predeterminados si el estado está vacío (usamos 'cat' como default seguro)
+        default_body = 'cat body.png' 
+        default_head = 'cat head.png' 
+
         self.player = Player(
-            body=outfit.get('body'),
-            head=outfit.get('head'),
-            hat=outfit.get('hat')
+            # Si el estado no tiene el asset, usamos el default (ej. 'cat body.png')
+            body=outfit.get('body', default_body), 
+            head=outfit.get('head', default_head), 
+            hat=outfit.get('hat') # 'hat' puede ser None si no tiene uno puesto
         )
-        # Personaje a 0.9 sobre el suelo y en la parte izquierda
         self.player.x = SCREEN_WIDTH // 4 
         self.player.y = GROUND_Y 
         
         # =================================================================
-        # 3. Botones y Drag and Drop
+        # 3. Botones y Drag and Drop (Restaurado)
         # =================================================================
         font = pygame.font.Font(None, 32)
         
-        # Botón para Abrir/Cerrar el armario
         self.btn_toggle_closet = Button(
             rect=(SCREEN_WIDTH - 220, SCREEN_HEIGHT // 2 - 50, 180, 50),
             text="Abrir armario",
@@ -92,7 +104,7 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
             callback=self.toggle_closet
         )
         
-        # Botón para volver al cuarto
+        # Botón para salir de la escena
         self.btn_go_room = Button(
             rect=(40, SCREEN_HEIGHT - 70, 150, 50),
             text="Volver al cuarto",
@@ -102,10 +114,8 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
 
         self.buttons = [self.btn_toggle_closet, self.btn_go_room]
         
-        # Items arrastrables (solo hats de ejemplo)
         self.draggable_items = self._setup_draggable_items()
 
-        # Variables de D&D
         self.dragging_item = None
         self.player_rect_global = None # Se calcula en draw
 
@@ -114,10 +124,8 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         original_width = img.get_width()
         original_height = img.get_height()
         
-        # Factor de escala basado en la altura de la pantalla
         scale_ratio = SCREEN_HEIGHT / original_height
         
-        # Si la imagen escalada es más angosta que la pantalla, escalamos por ancho
         if original_width * scale_ratio < SCREEN_WIDTH:
              scale_ratio = SCREEN_WIDTH / original_width
         
@@ -127,20 +135,25 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         return pygame.transform.scale(img, (new_width, new_height))
 
     def _setup_draggable_items(self):
-        """Configura los items de vestuario disponibles."""
+        """Configura los items de vestuario disponibles (Ejemplo: sombreros)."""
         items = []
         # Lista de assets de sombreros disponibles (ASSETS DE EJEMPLO)
         hat_assets = ["hat wizard.png", "hat santa claus.png", "hat graduation.png"]
         
-        # Posición de inicio de los items (dentro del armario abierto)
-        # Lo movemos ligeramente a la derecha para que no se superponga con el personaje
         x_start = SCREEN_WIDTH // 2 + 50
         y_pos = SCREEN_HEIGHT // 4
         x_spacing = 100
 
         for i, asset_name in enumerate(hat_assets):
-            # Cargar imagen y escalar (asumiendo que los assets de hats están en 'hats')
-            hat_img = load_image('hats', asset_name)
+            try:
+                # Cargar imagen y escalar (asumiendo que los assets de hats están en 'hats')
+                hat_img = load_image('hats', asset_name)
+                # Si load_image falla, devuelve una Surface roja, pero continuamos.
+            except Exception:
+                print(f"Error cargando el item {asset_name}. Usando placeholder.")
+                hat_img = pygame.Surface((80, 80))
+                hat_img.fill((255, 0, 255)) # Item magenta de emergencia
+
             # Escalar el item a un tamaño razonable para el inventario
             scale = 0.8 
             scaled_img = pygame.transform.scale(
@@ -163,16 +176,16 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
     def toggle_closet(self):
         """Cambia el estado del armario y el texto del botón."""
         self.closet_open = not self.closet_open
-        if self.closet_open:
-            self.btn_toggle_closet.text = "Cerrar armario"
-            self.btn_toggle_closet.text_surface = self.btn_toggle_closet.font.render("Cerrar armario", True, (20, 20, 20))
-        else:
-            self.btn_toggle_closet.text = "Abrir armario"
-            self.btn_toggle_closet.text_surface = self.btn_toggle_closet.font.render("Abrir armario", True, (20, 20, 20))
+        new_text = "Cerrar armario" if self.closet_open else "Abrir armario"
+        
+        # Actualizar el texto del botón
+        self.btn_toggle_closet.text = new_text
+        self.btn_toggle_closet.text_surface = self.btn_toggle_closet.font.render(new_text, True, (20, 20, 20))
+
 
     def go_room(self):
-        """Transición a la escena del cuarto."""
-        self.game.current_scene.change_scene("ROOM")
+        """Transición a la escena del cuarto. Usa la clave 'ROOM'."""
+        self.change_scene("ROOM")
 
     # ===========================
     # MANEJO DE INPUTS
@@ -181,20 +194,18 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         # 1. Botones (Solo si no estamos arrastrando)
         if not self.dragging_item:
             for btn in self.buttons:
-                if btn.handle_event(event):
-                    if event.type == pygame.MOUSEBUTTONDOWN and self.game.can_click:
-                        btn.callback()
-                        self.game.can_click = False
+                # Utilizamos el método handle_event de ui.py, que devuelve True si hubo click
+                if btn.handle_event(event) and event.type == pygame.MOUSEBUTTONDOWN and self.game.can_click:
+                    btn.callback()
+                    self.game.can_click = False
 
         # 2. Drag and Drop (Solo si el armario está abierto)
         if self.closet_open:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # Intenta iniciar arrastre
-                # Recorrer en orden inverso para que el elemento dibujado encima sea el primero en ser arrastrado
                 for item in reversed(self.draggable_items): 
                     if item.handle_event(event):
                         self.dragging_item = item
-                        # Mover el item arrastrado al final de la lista para dibujarlo encima
                         self.draggable_items.remove(item)
                         self.draggable_items.append(item)
                         break
@@ -213,16 +224,13 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         """Comprueba si el item arrastrado se ha soltado sobre el personaje."""
         item = self.dragging_item
         
-        # Calculamos la posición real de la cabeza (aproximada para colisión)
-        # Usamos CHARACTER_HEIGHT importada.
+        # Posición de la cabeza para colisión
         player_head_x = self.player.x
-        # La cabeza está en el 80% de la altura total del personaje desde el suelo
         player_head_y = self.player.y - CHARACTER_HEIGHT * 0.8 
         
-        # Creamos un rectángulo de colisión pequeño alrededor de la cabeza
+        # Rectángulo de colisión alrededor de la cabeza
         player_head_rect = pygame.Rect(0, 0, 80, 80)
         player_head_rect.center = (int(player_head_x), int(player_head_y))
-
 
         if item.rect.colliderect(player_head_rect):
             # Si colisiona y es un sombrero, equiparlo
@@ -239,7 +247,7 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
     # UPDATE
     # ===========================
     def update(self, dt):
-        # Actualizar el player (solo para gravedad/salto si estuviera activo)
+        # Actualizar el player 
         self.player.update(dt) 
         pass
 
@@ -248,17 +256,14 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
     # ===========================
     def draw(self, screen):
         # Dibujar el fondo correcto
-        if self.closet_open:
-            background = self.background_open
-        else:
-            background = self.background_closed
+        background = self.background_open if self.closet_open else self.background_closed
             
         screen.blit(background, (self.bg_x, 0))
 
         # Dibuja el personaje
         self.player.draw(screen)
 
-        # Dibujar el área objetivo (círculo) para saber dónde soltar el sombrero, solo si el armario está abierto
+        # Dibujar el área objetivo (círculo) solo si el armario está abierto
         if self.closet_open:
             player_head_x = int(self.player.x)
             player_head_y = int(self.player.y - CHARACTER_HEIGHT * 0.8)
@@ -272,8 +277,6 @@ class ClosetScene(Scene): # Renombramos la clase a ClosetScene
         # Dibuja los items arrastrables si el armario está abierto
         if self.closet_open:
             for item in self.draggable_items:
-                # El item arrastrado se dibuja al final para la capa superior,
-                # pero ya está al final de la lista, así que simplemente dibujamos todo
                 item.draw(screen)
             
         # Dibuja los botones

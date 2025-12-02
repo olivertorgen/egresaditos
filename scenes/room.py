@@ -10,15 +10,22 @@ from game.player import Player
 # La carga se realiza directamente en __init__ para garantizar
 # que load_image() sea llamada con los DOS argumentos requeridos.
 
+# La posición Y en el suelo (0.9 de la altura de la pantalla, como en Player)
+GROUND_Y = SCREEN_HEIGHT * 0.9
+
 class RoomScene(Scene):
     def __init__(self, game):
-        # ¡CORRECCIÓN CLAVE! Agregamos los paréntesis: super().__init__(game)
         super().__init__(game)
         
         self.state = self.game.state
 
         # Fondo: CARGA DIRECTA CON DOS ARGUMENTOS
-        self.background_img = load_image("images/rooms", "day room.png")
+        try:
+            self.background_img = load_image("images/rooms", "day room.png")
+        except Exception as e:
+            print(f"Error al cargar 'day room.png': {e}. Usando fondo de emergencia.")
+            self.background_img = pygame.Surface((10, 10))
+            self.background_img.fill((0, 0, 0)) # Fondo negro de emergencia
         
         # =================================================================
         # CORRECCIÓN DE FONDO: Ajustar la escala manteniendo la proporción 
@@ -30,10 +37,8 @@ class RoomScene(Scene):
         # Calcular el factor de escala basado en la altura de la pantalla (mantiene el aspecto)
         scale_ratio = SCREEN_HEIGHT / original_height
         
-        # Si la imagen original es más angosta que la pantalla, aumentamos el factor de escala
-        # para que la imagen sea al menos el doble del ancho de la pantalla (para scrolling)
+        # Si la imagen original es más angosta que la pantalla, la escalamos para que sea 2x el ancho de la pantalla (para scrolling)
         if original_width * scale_ratio < SCREEN_WIDTH:
-             # Si es más angosta que la pantalla, la escalamos para que sea 2x el ancho de la pantalla
             scale_ratio = (SCREEN_WIDTH * 2) / original_width
         
         new_width = int(original_width * scale_ratio)
@@ -95,12 +100,12 @@ class RoomScene(Scene):
     # CAMBIO DE ESCENAS
     # ===========================
     def go_closet(self):
-        # Aseguramos que la transición se hace a través de change_scene
-        self.game.current_scene.change_scene("CLOSET")
+        # ¡CORRECCIÓN CRÍTICA! Cambiamos la clave a la más estándar: "CLOSET"
+        self.change_scene("CLOSET")
 
     def go_kitchen(self):
-        # Aseguramos que la transición se hace a través de change_scene
-        self.game.current_scene.change_scene("KITCHEN")
+        # CORRECCIÓN: Llamamos a change_scene directamente en self.
+        self.change_scene("KITCHEN")
 
 
     # ===========================
@@ -113,12 +118,10 @@ class RoomScene(Scene):
         for btn in self.buttons:
             # handle_event gestiona el hover y devuelve True si hay un MOUSEBUTTONDOWN
             if btn.handle_event(event): 
-                # Si el evento es un click y el debounce está habilitado
-                if event.type == pygame.MOUSEBUTTONDOWN and self.game.can_click:
-                    # Llama al callback de la escena (go_closet/go_kitchen)
+                if event.type == pygame.MOUSEBUTTONDOWN and getattr(self.game, 'can_click', False):
                     btn.callback()
-                    # Deshabilita el click (debounce)
-                    self.game.can_click = False 
+                    if hasattr(self.game, 'can_click'):
+                        self.game.can_click = False 
         
         # 2. Salto (Evento de tecla hacia abajo)
         if event.type == pygame.KEYDOWN:
@@ -135,15 +138,14 @@ class RoomScene(Scene):
         direction = 0
         
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            direction = -1 # Corrección de lógica: mover el personaje a la izquierda es -1
+            direction = -1
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            direction = 1 # Corrección de lógica: mover el personaje a la derecha es +1
+            direction = 1
 
         # Actualiza la posición X del jugador. Multiplicamos por dt para movimiento suave.
         self.player.x += direction * self.player.speed * dt
         
         # Limita la posición X del jugador
-        # El jugador debe moverse en el rango de todo el fondo.
         min_x = SCREEN_WIDTH // 4 
         max_x = self.background.get_width() - SCREEN_WIDTH // 4 
         self.player.x = max(min(self.player.x, max_x), min_x)
@@ -153,7 +155,6 @@ class RoomScene(Scene):
         self.player.update(dt) 
         
         # Calcula la posición del fondo (simulando que la cámara sigue al jugador)
-        # La posición del fondo es la mitad de la pantalla menos la posición del jugador
         self.bg_x = SCREEN_WIDTH // 2 - self.player.x
         
         # Limita la posición del fondo para que no se vea el borde negro
